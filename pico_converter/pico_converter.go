@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/binary"
 	"fmt"
 	"image/png"
 	"math"
@@ -83,11 +84,37 @@ func main() {
 	fmt.Print("INTERPOLATE...")
 	t1 = time.Now()
 
+	results := make([][]byte, 4)
+
 	// calc interpolation (final image data)
-	interpolate(image2dR)
-	//	resultG := interpolate(image2dG)
-	//	resultB := interpolate(image2dB)
-	//	resultA := interpolate(image2dA)
+	results[0] = interpolate(image2dR)
+	results[1] = interpolate(image2dG)
+	results[2] = interpolate(image2dB)
+	results[3] = interpolate(image2dA)
+
+	duration = time.Since(t1)
+	fmt.Printf("DONE (%d ms)\n", int(float32(duration.Nanoseconds())/1000000.0))
+
+	fmt.Print("WRITING...")
+	t1 = time.Now()
+
+	f, err := os.Create("./output.ipf")
+	if err != nil {
+		fmt.Printf("Writing to file failed! Error: %s.\n", err.Error())
+		return
+	}
+
+	a := make([]byte, 4)
+	binary.LittleEndian.PutUint32(a, uint32(w))
+	f.Write(a)
+	binary.LittleEndian.PutUint32(a, uint32(h))
+	f.Write(a)
+	//	ioutil.WriteFile("output.ipf", w_array, os.O_CREATE)
+	//	ioutil.WriteFile("output.ipf", h_array, os.O_CREATE)
+	for i := 0; i < 4; i++ {
+		//		filewriter := ioutil.WriteFile("output.ipf", results[0], os.O_APPEND)
+		f.Write(results[i])
+	}
 
 	duration = time.Since(t1)
 	fmt.Printf("DONE (%d ms)\n", int(float32(duration.Nanoseconds())/1000000.0))
