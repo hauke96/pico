@@ -105,9 +105,9 @@ func main() {
 	}
 
 	a := make([]byte, 4)
-	binary.LittleEndian.PutUint32(a, uint32(w))
+	binary.BigEndian.PutUint32(a, uint32(w))
 	f.Write(a)
-	binary.LittleEndian.PutUint32(a, uint32(h))
+	binary.BigEndian.PutUint32(a, uint32(h))
 	f.Write(a)
 	//	ioutil.WriteFile("output.ipf", w_array, os.O_CREATE)
 	//	ioutil.WriteFile("output.ipf", h_array, os.O_CREATE)
@@ -136,7 +136,7 @@ func interpolate(data [][]byte) []byte {
 		width := len(data[0])
 
 		for ; index < width; index++ {
-			value1, offset, value2 := findPoints(&data[currentRow], &index, 10.0)
+			value1, offset, value2 := findPoints(&data[currentRow], &index, 30.0)
 			output = append(output, value1, offset, value2)
 		}
 	}
