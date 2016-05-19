@@ -3,42 +3,111 @@ package main
 import (
 	"encoding/binary"
 	"fmt"
+	"image"
 	"image/png"
 	"math"
 	"os"
+	"strconv"
+	"strings"
 	"time"
 )
 
+type imageRGBA struct {
+	R [][]byte
+	G [][]byte
+	B [][]byte
+	A [][]byte
+}
+
 func main() {
+	// ------------------------------
+	// PARSE ARGUMENTS
+	// ------------------------------
 	fmt.Print("PARSING ARGS...")
-	if len(os.Args) < 2 {
-		fmt.Printf("Please specify the *.png file as argument!\n")
-		return
+	if len(os.Args) < 3 {
+		Panic("Please specify the *.png file AND accuracy as argument!\n")
 	}
+	accuracy64, err := strconv.ParseFloat(os.Args[2], 32)
+	if err != nil {
+		Panic("Please enter a float number as accurancy!\n")
+	}
+	accuracy := float32(accuracy64)
 	fmt.Println("DONE")
 
-	fmt.Print("OPEN PNG FILE...")
-	// open png file
-	infile, err := os.Open(os.Args[1])
-	if err != nil {
-		fmt.Printf("Parsing argument error: %s\n", err.Error())
-		return
-	}
-	defer infile.Close()
-	fmt.Println("DONE")
-
-	fmt.Print("DECODE DATA...")
-	t1 := time.Now()
-	// get image object from file
-	img, err := png.Decode(infile)
-	if err != nil {
-		fmt.Printf("Loading png file error: %s\n", err.Error())
-		return
-	}
+	// ------------------------------
+	// READ PNG DATA
+	// ------------------------------
+	img := readPNG()
 
 	// get size and amount of pixel
 	bounds := img.Bounds()
 	w, h := bounds.Max.X, bounds.Max.Y
+
+	// ------------------------------
+	// GET RGBA IMAGE DATA FROM PNG DATA
+	// ------------------------------
+	image := decodePNGData(img, w, h)
+
+	// ------------------------------
+	// CONVERT EVERYTHING TO byte (8-BIT)
+	// ------------------------------
+	convertTo8Bit(img, w, h, &image)
+
+	// ------------------------------
+	// INTERPOLATE DATA
+	// ------------------------------
+	results := interpolateImage(image, accuracy)
+
+	// ------------------------------
+	// WRITE TO FILE
+	// ------------------------------
+	writeToFile(results, w, h)
+}
+
+func Panic(s string, a ...interface{}) {
+	if !strings.HasSuffix(s, "\n") {
+		s += "\n"
+	}
+	if !strings.HasPrefix(s, "\n") {
+		if !strings.HasPrefix(s, "ERROR: ") {
+			s = "ERROR: " + s
+		}
+		s = "\n" + s
+	} else {
+		if !strings.HasPrefix(s, "\nERROR: ") {
+			s = "\nERROR: " + s
+		}
+	}
+
+	if len(a) == 0 {
+		fmt.Printf(s)
+	} else {
+		fmt.Printf(s, a)
+	}
+	os.Exit(1)
+}
+
+func readPNG() image.Image {
+	fmt.Print("OPEN PNG FILE...")
+	// open png file
+	infile, err := os.Open(os.Args[1])
+	if err != nil {
+		Panic("Parsing argument error: %s\n", err.Error())
+	}
+	defer infile.Close()
+	// get image object from file
+	img, err := png.Decode(infile)
+	if err != nil {
+		Panic("Loading png file error: %s\n", err.Error())
+	}
+	fmt.Println("DONE")
+
+	return img
+}
+
+func decodePNGData(img image.Image, w, h int) imageRGBA {
+	fmt.Print("DECODE PNG DATA...")
+	t1 := time.Now()
 
 	// create data storage for the channels RGBA
 	image2dR := make([][]byte, h)
@@ -56,8 +125,13 @@ func main() {
 	duration := time.Since(t1)
 	fmt.Printf("DONE (%d ms)\n", int(float32(duration.Nanoseconds())/1000000.0))
 
+	return imageRGBA{R: image2dR, G: image2dG, B: image2dB, A: image2dA}
+}
+
+func convertTo8Bit(img image.Image, w, h int, image *imageRGBA) {
+
 	fmt.Print("CONVERT TO 8-BIT...")
-	t1 = time.Now()
+	t1 := time.Now()
 	// convert data from uint32 into bytes for smaller images
 	for x := 0; x < w; x++ {
 		for y := 0; y < h; y++ {
@@ -71,63 +145,40 @@ func main() {
 				b > 255 ||
 				a > 255 {
 
-				fmt.Printf("Invalid amount of bits! Only 8-bit per channel are allowed (yet). The value was %d,%d,%d,%d.\n", r, g, b, a)
-				return
+				Panic("Invalid amount of bits! Only 8-bit per channel are allowed (yet). The value was %d,%d,%d,%d.\n", r, g, b, a)
 			}
 			//			fmt.Printf("OK for %d and %d with values %d, %d, %d, %d\n", y, x, r, g, b, a)
-			image2dR[y][x], image2dG[y][x], image2dB[y][x], image2dA[y][x] = byte(r), byte(g), byte(b), byte(a)
+			//			image2dR[y][x], image2dG[y][x], image2dB[y][x], image2dA[y][x] = byte(r), byte(g), byte(b), byte(a)
+			(*image).R[y][x] = byte(r)
+			(*image).G[y][x] = byte(g)
+			(*image).B[y][x] = byte(b)
+			(*image).A[y][x] = byte(a)
 		}
 	}
-	duration = time.Since(t1)
+	duration := time.Since(t1)
 	fmt.Printf("DONE (%d ms)\n", int(float32(duration.Nanoseconds())/1000000.0))
+}
+
+func interpolateImage(image imageRGBA, accuracy float32) [][]byte {
 
 	fmt.Print("INTERPOLATE...")
-	t1 = time.Now()
+	t1 := time.Now()
 
 	results := make([][]byte, 4)
 
 	// calc interpolation (final image data)
-	results[0] = interpolate(image2dR)
-	results[1] = interpolate(image2dG)
-	results[2] = interpolate(image2dB)
-	results[3] = interpolate(image2dA)
+	results[0] = interpolateChannel(image.R, accuracy)
+	results[1] = interpolateChannel(image.G, accuracy)
+	results[2] = interpolateChannel(image.B, accuracy)
+	results[3] = interpolateChannel(image.A, accuracy)
 
-	duration = time.Since(t1)
+	duration := time.Since(t1)
 	fmt.Printf("DONE (%d ms)\n", int(float32(duration.Nanoseconds())/1000000.0))
 
-	fmt.Print("WRITING...")
-	t1 = time.Now()
-
-	f, err := os.Create("./output.ipf")
-	if err != nil {
-		fmt.Printf("Writing to file failed! Error: %s.\n", err.Error())
-		return
-	}
-
-	a := make([]byte, 4)
-	binary.BigEndian.PutUint32(a, uint32(w))
-	f.Write(a)
-	binary.BigEndian.PutUint32(a, uint32(h))
-	f.Write(a)
-	//	ioutil.WriteFile("output.ipf", w_array, os.O_CREATE)
-	//	ioutil.WriteFile("output.ipf", h_array, os.O_CREATE)
-	for i := 0; i < 4; i++ {
-		//		filewriter := ioutil.WriteFile("output.ipf", results[0], os.O_APPEND)
-		f.Write(results[i])
-	}
-
-	duration = time.Since(t1)
-	fmt.Printf("DONE (%d ms)\n", int(float32(duration.Nanoseconds())/1000000.0))
-
-	//	fmt.Println(resultR)
-	//	fmt.Println(resultG)
-	//	fmt.Println(resultB)
-	//	fmt.Println(resultA)
-
-	//	fmt.Println(result) //TODO print result
+	return results
 }
 
-func interpolate(data [][]byte) []byte {
+func interpolateChannel(data [][]byte, accuracy float32) []byte {
 	amountRows := len(data)
 	output := make([]byte, 0) // at least [Value, Offset, Value] due to definition
 	for currentRow := 0; currentRow < amountRows; currentRow++ {
@@ -136,7 +187,7 @@ func interpolate(data [][]byte) []byte {
 		width := len(data[0])
 
 		for ; index < width; index++ {
-			value1, offset, value2 := findPoints(&data[currentRow], &index, 30.0)
+			value1, offset, value2 := findPoints(&data[currentRow], &index, accuracy)
 			output = append(output, value1, offset, value2)
 		}
 	}
@@ -185,4 +236,28 @@ func calcDeviation(actualSum, amount, value1, value2 float32) float32 {
 	//	fmt.Printf("Value are: %f, %f, %f, %f, %f\n", actualSum, v1, v2, factor, expectedSum)
 
 	return float32(math.Abs(float64(actualSum-expectedSum))) / expectedSum * 100.0
+}
+
+func writeToFile(results [][]byte, w, h int) {
+
+	fmt.Print("WRITING...")
+	t1 := time.Now()
+
+	f, err := os.Create("./output.ipf") // Interpolated Picture File
+	if err != nil {
+		Panic("Writing to file failed! Error: %s.\n", err.Error())
+	}
+
+	a := make([]byte, 4)
+	binary.BigEndian.PutUint32(a, uint32(w))
+	f.Write(a)
+	binary.BigEndian.PutUint32(a, uint32(h))
+	f.Write(a)
+
+	for i := 0; i < len(results); i++ {
+		f.Write(results[i])
+	}
+
+	duration := time.Since(t1)
+	fmt.Printf("DONE (%d ms)\n", int(float32(duration.Nanoseconds())/1000000.0))
 }
