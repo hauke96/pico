@@ -43,7 +43,6 @@ func main() {
 		Panic("Parsing argument error: %s\n", err.Error())
 	}
 	fmt.Println("DONE (", len(rawData)/1000, "kb read )")
-	fmt.Println(rawData)
 
 	// ------------------------------
 	// DECODING
@@ -212,7 +211,6 @@ func decodeRow(rawImageData []byte, array *[][]byte, currentRow, currentCol, wid
 		// ------------------------------
 		// CALC DATA FOR INTERPOLATION
 		// ------------------------------
-		fmt.Println(i, len(rawImageData))
 		rawStart := rawImageData[i] // the start value of the interpolation
 		offset := rawImageData[i+1] // the amount of pixel between start and end
 		rawEnd := rawImageData[i+2] // the end value of the interpolation
@@ -232,6 +230,7 @@ func decodeRow(rawImageData []byte, array *[][]byte, currentRow, currentCol, wid
 		// ------------------------------
 		// INTERPOLATE
 		// ------------------------------
+		fmt.Println(currentCol, offset, i)
 		for k := 0; byte(k) < offset; k++ {
 			(*array)[currentRow][currentCol+k] = rawStart + byte(float64(k)*step)
 			//				fmt.Println(rawStart + k*step)

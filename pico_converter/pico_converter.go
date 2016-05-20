@@ -185,11 +185,13 @@ func interpolateChannel(data [][]byte, accuracy float32) []byte {
 		//	currentRow := 0           // like y-coordinate
 		index := 0 // like x-coordinate
 		width := len(data[0])
-
+		sum := 0
 		for ; index < width; index++ {
 			value1, offset, value2 := findPoints(&data[currentRow], &index, accuracy)
+			sum += 1 + int(offset)
 			output = append(output, value1, offset, value2)
 		}
+		fmt.Println(sum, amountRows)
 	}
 
 	return output
@@ -204,23 +206,21 @@ func findPoints(dataPointer *[]byte, index *int, deviation float32) (value1, off
 	// initialize return values
 	value1 = data[*index]
 	value2 = value1
-	offset = byte(0)
+	offset = 0
+	d := float32(0)
 
-	for ; *index < width; *index++ {
+	for ; *index < width && amount < 256; *index++ {
 		value2 = data[*index+1]
 		sum += int(value2)
 
-		d := calcDeviation(float32(sum), float32(amount), float32(value1), float32(value2))
-		//		fmt.Printf("Calced deviation: %f\n", d)
+		d = calcDeviation(float32(sum), float32(amount), float32(value1), float32(value2))
 		if d > deviation {
-			//			fmt.Printf("Values are not precise enough! Calced deviation: %f - Max. deviation: %f\n", d, deviation)
-			value2 = data[*index]
 			break
 		}
-
+		value2 = data[*index]
 		amount++
-	}
 
+	}
 	offset = byte(amount - 1)
 
 	return
