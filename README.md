@@ -1,3 +1,4 @@
+[![Build Status](https://travis-ci.org/hauke96/pico.svg?branch=master)](https://travis-ci.org/hauke96/pico)
 # pico
 PICO is a mechanism to compress images using interpolated data. This repo contains a converter and viewer for PICO.
 # Screenshot 
