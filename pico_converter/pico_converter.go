@@ -191,7 +191,6 @@ func interpolateChannel(data [][]byte, accuracy float32) []byte {
 			sum += 1 + int(offset)
 			output = append(output, value1, offset, value2)
 		}
-		fmt.Println(sum, amountRows)
 	}
 
 	return output

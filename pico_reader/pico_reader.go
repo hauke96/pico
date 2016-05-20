@@ -6,6 +6,7 @@ import (
 	"github.com/mattn/go-gtk/gdk"
 	"github.com/mattn/go-gtk/gtk"
 	"io/ioutil"
+	"math"
 	"os"
 	"strings"
 	"time"
@@ -22,14 +23,20 @@ type image struct {
 	B             [][]byte
 }
 
+const WIN_HEIGHT = 600
+const WIN_WIDTH = 800
+
+var IPF_FILE string = "output.ipf"
+
 func main() {
-	os.Args = append(os.Args, "output.ipf")
 	// ------------------------------
 	// CHECK ARGS
 	// ------------------------------
 	fmt.Print("CHECKING ARGS...")
 	if len(os.Args) < 2 {
-		Panic("Please specify the *.ipf file as argument!")
+		fmt.Println("\nWARNING: No File specified! I'll use 'output.ipf' as image file.")
+	} else {
+		IPF_FILE = os.Args[1]
 	}
 	fmt.Println("DONE")
 
@@ -38,7 +45,7 @@ func main() {
 	// ------------------------------
 	fmt.Print("OPEN IPF FILE...")
 	// open ipf file
-	rawData, err := ioutil.ReadFile(os.Args[1])
+	rawData, err := ioutil.ReadFile(IPF_FILE)
 	if err != nil {
 		Panic("Parsing argument error: %s\n", err.Error())
 	}
@@ -57,14 +64,14 @@ func main() {
 	// ------------------------------
 	// PRINT RESULT
 	// ------------------------------
-	fmt.Println(decodedData)
+	//	fmt.Println(decodedData)
 
 	// ------------------------------
 	// CREATE WINDOW
 	// ------------------------------
 	drawable, gc := initWindow()
 	//	drawable.DrawLine(gc, 10, 10, 100, 100)
-	drawImage(decodedData, drawable, gc)
+	drawImage(decodedData, drawable, gc, WIN_WIDTH, WIN_HEIGHT)
 
 	// ------------------------------
 	// DRAW IMAGE
@@ -107,7 +114,7 @@ func initWindow() (*gdk.Drawable, *gdk.GC) {
 func createWindow(args *[]string) *gtk.Window {
 	gtk.Init(args)
 	window := gtk.NewWindow(gtk.WINDOW_TOPLEVEL)
-	window.SetTitle("GTK DrawingArea")
+	window.SetTitle("PICO - Picture Interpolation COmpression - v.0.1 - View " + IPF_FILE)
 	window.Connect("destroy", gtk.MainQuit)
 
 	return window
@@ -160,7 +167,7 @@ func createDrawingArea(window *gtk.Window) (*gdk.Pixmap, *gdk.GC) {
 }
 
 func showWindow(window *gtk.Window) {
-	window.SetSizeRequest(450, 400)
+	window.SetSizeRequest(WIN_WIDTH, WIN_HEIGHT)
 	window.ShowAll()
 }
 
@@ -216,7 +223,7 @@ func decodeRow(rawImageData []byte, array *[][]byte, currentRow, currentCol, wid
 		rawEnd := rawImageData[i+2] // the end value of the interpolation
 		step := 0.0
 		if offset != 0 {
-			step = float64(rawEnd-rawStart) / float64(offset) // the difference between two interpolated pixel
+			step = float64(int(rawEnd)-int(rawStart)) / float64(offset+2) // the difference between two interpolated pixel
 		}
 		i += 3
 
@@ -230,10 +237,14 @@ func decodeRow(rawImageData []byte, array *[][]byte, currentRow, currentCol, wid
 		// ------------------------------
 		// INTERPOLATE
 		// ------------------------------
-		fmt.Println(currentCol, offset, i)
 		for k := 0; byte(k) < offset; k++ {
-			(*array)[currentRow][currentCol+k] = rawStart + byte(float64(k)*step)
-			//				fmt.Println(rawStart + k*step)
+			value := float64(k) * step
+			if value < 255 {
+				value = -255
+			} else if value > 255 {
+				value = 255
+			}
+			(*array)[currentRow][currentCol+k] = rawStart + byte(value)
 		}
 		currentCol += int(offset) - 1
 
@@ -252,11 +263,19 @@ func bytesToInt(a, b, c, d byte) int {
 	return int(binary.BigEndian.Uint32(mySlice))
 }
 
-func drawImage(image image, drawable *gdk.Drawable, gc *gdk.GC) {
-	for y := 0; y < image.height; y++ {
-		for x := 0; x < image.width; x++ {
+func drawImage(image image, drawable *gdk.Drawable, gc *gdk.GC, width, height int) {
+	scale := 6.0
+	for y := 0; y < image.height && y < int(WIN_HEIGHT*scale); y += int(math.Ceil(scale)) {
+		for x := 0; x < image.width && x < int(WIN_WIDTH*scale); x += int(math.Ceil(scale)) {
+			//			gc.SetRgbFgColor(gdk.NewColorRGB(image.R[y][x], 0, 0))
+			//			drawable.DrawRectangle(gc, true, x*10, 0, 10, 10)
+			//			gc.SetRgbFgColor(gdk.NewColorRGB(0, image.G[y][x], 0))
+			//			drawable.DrawRectangle(gc, true, x*10, 10, 10, 10)
+			//			gc.SetRgbFgColor(gdk.NewColorRGB(0, 0, image.B[y][x]))
+			//			drawable.DrawRectangle(gc, true, x*10, 20, 10, 10)
 			gc.SetRgbFgColor(gdk.NewColorRGB(image.R[y][x], image.G[y][x], image.B[y][x]))
-			drawable.DrawPoint(gc, x, y)
+			//			drawable.DrawRectangle(gc, true, x*10, 35, 10, 10)
+			drawable.DrawPoint(gc, int(float64(x)/scale), int(float64(y)/scale))
 		}
 	}
 }
