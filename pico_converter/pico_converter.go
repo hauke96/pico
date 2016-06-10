@@ -18,6 +18,12 @@ type imageRGBA struct {
 	B [][]byte
 	A [][]byte
 }
+type RGBAValue struct {
+	R byte
+	G byte
+	B byte
+	A byte
+}
 
 func main() {
 	// ------------------------------
@@ -159,18 +165,16 @@ func convertTo8Bit(img image.Image, w, h int, image *imageRGBA) {
 	fmt.Printf("DONE (%d ms)\n", int(float32(duration.Nanoseconds())/1000000.0))
 }
 
-func interpolateImage(image imageRGBA, accuracy float32) [][]byte {
+func interpolateImage(image imageRGBA, accuracy float32) []byte {
 
 	fmt.Print("INTERPOLATE...")
 	t1 := time.Now()
 
-	results := make([][]byte, 4)
-
 	// calc interpolation (final image data)
-	results[0] = interpolateChannel(image.R, accuracy)
-	results[1] = interpolateChannel(image.G, accuracy)
-	results[2] = interpolateChannel(image.B, accuracy)
-	results[3] = interpolateChannel(image.A, accuracy)
+	results := interpolateChannel(image, accuracy)
+	//	results[1] = interpolateChannel(image.G, accuracy)
+	//	results[2] = interpolateChannel(image.B, accuracy)
+	//	results[3] = interpolateChannel(image.A, accuracy)
 
 	duration := time.Since(t1)
 	fmt.Printf("DONE (%d ms)\n", int(float32(duration.Nanoseconds())/1000000.0))
@@ -178,55 +182,87 @@ func interpolateImage(image imageRGBA, accuracy float32) [][]byte {
 	return results
 }
 
-func interpolateChannel(data [][]byte, accuracy float32) []byte {
-	amountRows := len(data)
-	output := make([]byte, 0) // at least [Value, Offset, Value] due to definition
+func interpolateChannel(image imageRGBA, accuracy float32) []byte {
+	amountRows := len(image.A)
+	width := len(image.A[0])
+	output := make([]byte, 0) // at least [vR, vG, vB, Offset, vR, vG, vB] due to definition
 	for currentRow := 0; currentRow < amountRows; currentRow++ {
 		//	currentRow := 0           // like y-coordinate
 		index := 0 // like x-coordinate
-		width := len(data[0])
 		sum := 0
 		for ; index < width; index++ {
-			value1, offset, value2 := findPoints(&data[currentRow], &index, accuracy)
+			value1, offset, value2 := findPoints(&image, currentRow, &index, accuracy)
 			sum += 1 + int(offset)
-			output = append(output, value1, offset, value2)
+			output = append(output, value1.R, value1.G, value1.B, value1.A, offset, value2.R, value2.G, value2.B, value2.A)
 		}
 	}
 
 	return output
 }
 
-func findPoints(dataPointer *[]byte, index *int, deviation float32) (value1, offset, value2 byte) {
-	sum := 0
+func findPoints(image *imageRGBA, currentRow int, index *int, deviation float32) (RGBAValue, byte, RGBAValue) {
+	sumR := 0
+	sumG := 0
+	sumB := 0
+	sumA := 0
+
 	amount := 1
-	data := *dataPointer
-	width := len(data) - 1
+	data := *image
+	width := len(data.A[0]) - 1
 
 	// initialize return values
-	value1 = data[*index]
-	value2 = value1
-	offset = 0
-	d := float32(0)
+	value1 := RGBAValue{
+		R: data.R[currentRow][*index],
+		G: data.G[currentRow][*index],
+		B: data.B[currentRow][*index],
+		A: data.A[currentRow][*index],
+	}
+	value2 := value1
+	offset := byte(0)
 
 	for ; *index < width && amount < 256; *index++ {
-		value2 = data[*index+1]
-		sum += int(value2)
+		value2 = RGBAValue{
+			R: data.R[currentRow][*index+1],
+			G: data.G[currentRow][*index+1],
+			B: data.B[currentRow][*index+1],
+			A: data.A[currentRow][*index+1],
+		}
+		sumR += int(value2.R)
+		sumG += int(value2.G)
+		sumB += int(value2.B)
+		sumA += int(value2.A)
 
-		d = calcDeviation(float32(sum), float32(amount), float32(value1), float32(value2))
-		if d > deviation {
+		dR := calcDeviation(float32(sumR), float32(amount), float32(value1.R), float32(value2.R))
+		dG := calcDeviation(float32(sumG), float32(amount), float32(value1.G), float32(value2.G))
+		dB := calcDeviation(float32(sumB), float32(amount), float32(value1.B), float32(value2.B))
+		dA := calcDeviation(float32(sumA), float32(amount), float32(value1.A), float32(value2.A))
+
+		//		fmt.Println(float32(sumA), float32(amount), float32(value1.A), float32(value2.A))
+
+		if dR+dG+dB+dA > 4*deviation {
+			//			fmt.Println("OK")
 			break
 		}
-		value2 = data[*index]
+
+		value2 = RGBAValue{
+			R: data.R[currentRow][*index],
+			G: data.G[currentRow][*index],
+			B: data.B[currentRow][*index],
+			A: data.A[currentRow][*index],
+		}
 		amount++
 
 	}
 	offset = byte(amount - 1)
 
-	return
+	return value1, offset, value2
 }
 
 func calcDeviation(actualSum, amount, value1, value2 float32) float32 {
 	factor := (value2 - value1) / amount
+	if factor == 0 {
+		return float32(0)
+	}
 	// difference between two gauss formulas, multiplicated with the "frequency" so the difference between to ideal values
 	// this gives us the expected sum between the two values (in other words: if you'd interpolate between value1 and value2 and sum it up, this would be your result)
 	v1 := value1 / factor
@@ -237,7 +273,7 @@ func calcDeviation(actualSum, amount, value1, value2 float32) float32 {
 	return float32(math.Abs(float64(actualSum-expectedSum))) / expectedSum * 100.0
 }
 
-func writeToFile(results [][]byte, w, h int) {
+func writeToFile(results []byte, w, h int) {
 
 	fmt.Print("WRITING...")
 	t1 := time.Now()
@@ -253,9 +289,10 @@ func writeToFile(results [][]byte, w, h int) {
 	binary.BigEndian.PutUint32(a, uint32(h))
 	f.Write(a)
 
-	for i := 0; i < len(results); i++ {
-		f.Write(results[i])
-	}
+	//	for i := 0; i < len(results); i++ {
+	f.Write(results)
+	fmt.Println(len(results))
+	//	}
 
 	duration := time.Since(t1)
 	fmt.Printf("DONE (%d ms)\n", int(float32(duration.Nanoseconds())/1000000.0))
