@@ -113,7 +113,7 @@ func initWindow() (*gdk.Drawable, *gdk.GC) {
 func createWindow(args *[]string) *gtk.Window {
 	gtk.Init(args)
 	window := gtk.NewWindow(gtk.WINDOW_TOPLEVEL)
-	window.SetTitle("PICO - Picture Interpolation COmpression - v.0.1 - View " + IPF_FILE)
+	window.SetTitle("PICO - Picture Interpolation COmpression - v.0.2 - View " + IPF_FILE)
 	window.Connect("destroy", gtk.MainQuit)
 
 	return window
@@ -280,7 +280,7 @@ func bytesToInt(a, b, c, d byte) int {
 }
 
 func drawImage(image image, drawable *gdk.Drawable, gc *gdk.GC, width, height int) {
-	scale := 1.0
+	scale := 6.0
 	for y := 0; y < image.height && y < int(WIN_HEIGHT*scale); y += int(math.Ceil(scale)) {
 		for x := 0; x < image.width && x < int(WIN_WIDTH*scale); x += int(math.Ceil(scale)) {
 			//			gc.SetRgbFgColor(gdk.NewColorRGB(image.R[y][x], 0, 0))
