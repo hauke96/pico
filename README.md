@@ -3,7 +3,7 @@
 PICO is a mechanism to compress images using interpolated data. This repo contains a converter and viewer for PICO.
 # Screenshot 
 This image shows a photo compressed with an accuracy tolerance (s.blow) of 2.
-![Image or link broken :( please report](http://hauke-stieler.de/public/pico/pico_screenshot_01.png "PICO version v0.1")
+![Image or link broken :( please report](http://hauke-stieler.de/public/pico/pico_screenshot_v0.2.png "PICO version v0.2")
 # How it works
 TODO
 ## The algorithm
