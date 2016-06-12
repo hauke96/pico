@@ -198,26 +198,35 @@ func decode(rawImageData []byte) image {
 		image.G[currentRow] = make([]byte, width)
 		image.B[currentRow] = make([]byte, width)
 
-		currentCol := 0 // The index in the color array
-		decodeRow(rawImageData, &image, currentRow, currentCol, width, &i)
+		decodeRow(rawImageData, &image, currentRow, width, &i)
 	}
 
 	return image
 }
 
-func decodeRow(rawImageData []byte, image *image, currentRow, currentCol, width int, ipointer *int) {
+func decodeRow(rawImageData []byte, image *image, currentRow, width int, ipointer *int) {
 	i := *ipointer
+	rawStartR := rawImageData[i+0] // the start value of the interpolation
+	rawStartG := rawImageData[i+1] // the start value of the interpolation
+	rawStartB := rawImageData[i+2] // the start value of the interpolation
+	i += 3
+	currentCol := 0
+
+	(*image).R[currentRow][currentCol] = rawStartR
+	(*image).G[currentRow][currentCol] = rawStartG
+	(*image).B[currentRow][currentCol] = rawStartB
+
+	currentCol++
+
 	for currentCol < width {
 		// ------------------------------
 		// CALC DATA FOR INTERPOLATION
 		// ------------------------------
-		rawStartR := rawImageData[i]   // the start value of the interpolation
-		rawStartG := rawImageData[i+1] // the start value of the interpolation
-		rawStartB := rawImageData[i+2] // the start value of the interpolation
-		offset := rawImageData[i+3]    // the amount of pixel between start and end
-		rawEndR := rawImageData[i+4]   // the end value of the interpolation
-		rawEndG := rawImageData[i+5]   // the end value of the interpolation
-		rawEndB := rawImageData[i+6]   // the end value of the interpolation
+		offset := rawImageData[i]    // the amount of pixel between start and end
+		rawEndR := rawImageData[i+1] // the end value of the interpolation
+		rawEndG := rawImageData[i+2] // the end value of the interpolation
+		rawEndB := rawImageData[i+3] // the end value of the interpolation
+		i += 4
 
 		stepR := 0.0
 		stepG := 0.0
@@ -225,35 +234,40 @@ func decodeRow(rawImageData []byte, image *image, currentRow, currentCol, width 
 		stepR = float64(int(rawEndR)-int(rawStartR)) / (float64(offset) + 2.0) // the difference between two interpolated pixel
 		stepG = float64(int(rawEndG)-int(rawStartG)) / (float64(offset) + 2.0) // the difference between two interpolated pixel
 		stepB = float64(int(rawEndB)-int(rawStartB)) / (float64(offset) + 2.0) // the difference between two interpolated pixel
-		i += 7
-
-		// ------------------------------
-		// SET START VALUE
-		// ------------------------------
-		(*image).R[currentRow][currentCol] = rawStartR
-		(*image).G[currentRow][currentCol] = rawStartG
-		(*image).B[currentRow][currentCol] = rawStartB
-		currentCol++
 
 		// ------------------------------
 		// INTERPOLATE
 		// ------------------------------
 		for k := 0; byte(k) < offset; k++ {
+			//			fmt.Println(currentRow, ",", width, ",", currentCol+k, ",", offset, ",", len((*image).R[0]))
 			(*image).R[currentRow][currentCol+k] = getNewValue(k, rawStartR, stepR)
 
 			(*image).G[currentRow][currentCol+k] = getNewValue(k, rawStartG, stepG)
 
 			(*image).B[currentRow][currentCol+k] = getNewValue(k, rawStartB, stepB)
+
 		}
-		currentCol += int(offset) - 1
+
+		// ------------------------------
+		// SET VALUES
+		// ------------------------------
+		(*image).R[currentRow][currentCol] = rawStartR
+		(*image).G[currentRow][currentCol] = rawStartG
+		(*image).B[currentRow][currentCol] = rawStartB
+
+		currentCol += int(offset) + 0
+
+		rawStartR = rawEndR
+		rawStartG = rawEndG
+		rawStartB = rawEndB
 
 		// ------------------------------
 		// SET END VALUE
 		// ------------------------------
-		(*image).R[currentRow][currentCol] = rawEndR
-		(*image).G[currentRow][currentCol] = rawEndG
-		(*image).B[currentRow][currentCol] = rawEndB
-		currentCol++
+		//		(*image).R[currentRow][currentCol] = rawEndR
+		//		(*image).G[currentRow][currentCol] = rawEndG
+		//		(*image).B[currentRow][currentCol] = rawEndB
+		//		currentCol++
 	}
 	*ipointer = i
 }
@@ -264,9 +278,6 @@ func getNewValue(k int, rawValue byte, step float64) byte {
 		value = 0
 	} else if value > 255 {
 		value = 255
-	}
-	if int(value) != int(byte(value)) {
-		fmt.Println(value, " - byte(", value, ") = ", byte(value), "\t\t", k, " - ", step)
 	}
 	return byte(value)
 }

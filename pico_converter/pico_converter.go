@@ -186,11 +186,14 @@ func interpolateChannel(image imageRGBA, accuracy float32) []byte {
 	for currentRow := 0; currentRow < amountRows; currentRow++ {
 		//	currentRow := 0           // like y-coordinate
 		index := 0 // like x-coordinate
-		sum := 0
+		//		sum := 0
+
+		output = append(output, image.R[currentRow][0], image.G[currentRow][0], image.B[currentRow][0])
+
 		for ; index < width; index++ {
-			value1, offset, value2 := findPoints(&image, currentRow, &index, accuracy)
-			sum += 1 + int(offset)
-			output = append(output, value1.R, value1.G, value1.B, offset, value2.R, value2.G, value2.B)
+			_, offset, value2 := findPoints(&image, currentRow, &index, accuracy)
+			//			sum += 1 + int(offset)
+			output = append(output, offset, value2.R, value2.G, value2.B)
 		}
 	}
 
@@ -229,9 +232,10 @@ func findPoints(image *imageRGBA, currentRow int, index *int, deviation float32)
 		dG := calcDeviation(float32(sumG), float32(amount), float32(value1.G), float32(value2.G))
 		dB := calcDeviation(float32(sumB), float32(amount), float32(value1.B), float32(value2.B))
 
-		if dR > deviation ||
-			dG > deviation ||
-			dB > deviation {
+		if dR > 2*deviation ||
+			dG > 2*deviation ||
+			dB > 2*deviation {
+			*index--
 			break
 		}
 
