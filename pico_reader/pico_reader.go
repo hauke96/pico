@@ -231,15 +231,14 @@ func decodeRow(rawImageData []byte, image *image, currentRow, width int, ipointe
 		stepR := 0.0
 		stepG := 0.0
 		stepB := 0.0
-		stepR = float64(int(rawEndR)-int(rawStartR)) / (float64(offset) + 2.0) // the difference between two interpolated pixel
-		stepG = float64(int(rawEndG)-int(rawStartG)) / (float64(offset) + 2.0) // the difference between two interpolated pixel
-		stepB = float64(int(rawEndB)-int(rawStartB)) / (float64(offset) + 2.0) // the difference between two interpolated pixel
+		stepR = float64(int(rawEndR)-int(rawStartR)) / (float64(offset-2) + 2.0) // the difference between two interpolated pixel
+		stepG = float64(int(rawEndG)-int(rawStartG)) / (float64(offset-2) + 2.0) // the difference between two interpolated pixel
+		stepB = float64(int(rawEndB)-int(rawStartB)) / (float64(offset-2) + 2.0) // the difference between two interpolated pixel
 
 		// ------------------------------
 		// INTERPOLATE
 		// ------------------------------
 		for k := 0; byte(k) < offset; k++ {
-			//			fmt.Println(currentRow, ",", width, ",", currentCol+k, ",", offset, ",", len((*image).R[0]))
 			(*image).R[currentRow][currentCol+k] = getNewValue(k, rawStartR, stepR)
 
 			(*image).G[currentRow][currentCol+k] = getNewValue(k, rawStartG, stepG)
@@ -260,14 +259,6 @@ func decodeRow(rawImageData []byte, image *image, currentRow, width int, ipointe
 		rawStartR = rawEndR
 		rawStartG = rawEndG
 		rawStartB = rawEndB
-
-		// ------------------------------
-		// SET END VALUE
-		// ------------------------------
-		//		(*image).R[currentRow][currentCol] = rawEndR
-		//		(*image).G[currentRow][currentCol] = rawEndG
-		//		(*image).B[currentRow][currentCol] = rawEndB
-		//		currentCol++
 	}
 	*ipointer = i
 }

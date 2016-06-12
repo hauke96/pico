@@ -184,16 +184,23 @@ func interpolateChannel(image imageRGBA, accuracy float32) []byte {
 	width := len(image.A[0])
 	output := make([]byte, 0) // at least [vR, vG, vB, Offset, vR, vG, vB] due to definition
 	for currentRow := 0; currentRow < amountRows; currentRow++ {
-		//	currentRow := 0           // like y-coordinate
 		index := 0 // like x-coordinate
-		//		sum := 0
 
 		output = append(output, image.R[currentRow][0], image.G[currentRow][0], image.B[currentRow][0])
 
+		offsetSum := 0
+
 		for ; index < width; index++ {
 			_, offset, value2 := findPoints(&image, currentRow, &index, accuracy)
-			//			sum += 1 + int(offset)
+			offsetSum += int(offset)
 			output = append(output, offset, value2.R, value2.G, value2.B)
+		}
+
+		// FIXME sometimes the sum of all offsets if not width-1. Resolve this hack please!
+		if offsetSum != width-1 {
+			output[len(output)-4] = output[len(output)-4] + byte(width-1-offsetSum)
+			offsetSum += width - 1 - offsetSum
+			//			fmt.Println(offsetSum, ",", byte(width-1-offsetSum), "\n")
 		}
 	}
 
@@ -232,9 +239,9 @@ func findPoints(image *imageRGBA, currentRow int, index *int, deviation float32)
 		dG := calcDeviation(float32(sumG), float32(amount), float32(value1.G), float32(value2.G))
 		dB := calcDeviation(float32(sumB), float32(amount), float32(value1.B), float32(value2.B))
 
-		if dR > 2*deviation ||
-			dG > 2*deviation ||
-			dB > 2*deviation {
+		if dR > deviation ||
+			dG > deviation ||
+			dB > deviation {
 			*index--
 			break
 		}
