@@ -172,9 +172,6 @@ func interpolateImage(image imageRGBA, accuracy float32) []byte {
 
 	// calc interpolation (final image data)
 	results := interpolateChannel(image, accuracy)
-	//	results[1] = interpolateChannel(image.G, accuracy)
-	//	results[2] = interpolateChannel(image.B, accuracy)
-	//	results[3] = interpolateChannel(image.A, accuracy)
 
 	duration := time.Since(t1)
 	fmt.Printf("DONE (%d ms)\n", int(float32(duration.Nanoseconds())/1000000.0))
@@ -193,7 +190,7 @@ func interpolateChannel(image imageRGBA, accuracy float32) []byte {
 		for ; index < width; index++ {
 			value1, offset, value2 := findPoints(&image, currentRow, &index, accuracy)
 			sum += 1 + int(offset)
-			output = append(output, value1.R, value1.G, value1.B, value1.A, offset, value2.R, value2.G, value2.B, value2.A)
+			output = append(output, value1.R, value1.G, value1.B, offset, value2.R, value2.G, value2.B)
 		}
 	}
 
@@ -204,7 +201,6 @@ func findPoints(image *imageRGBA, currentRow int, index *int, deviation float32)
 	sumR := 0
 	sumG := 0
 	sumB := 0
-	sumA := 0
 
 	amount := 1
 	data := *image
@@ -215,7 +211,6 @@ func findPoints(image *imageRGBA, currentRow int, index *int, deviation float32)
 		R: data.R[currentRow][*index],
 		G: data.G[currentRow][*index],
 		B: data.B[currentRow][*index],
-		A: data.A[currentRow][*index],
 	}
 	value2 := value1
 	offset := byte(0)
@@ -225,22 +220,18 @@ func findPoints(image *imageRGBA, currentRow int, index *int, deviation float32)
 			R: data.R[currentRow][*index+1],
 			G: data.G[currentRow][*index+1],
 			B: data.B[currentRow][*index+1],
-			A: data.A[currentRow][*index+1],
 		}
 		sumR += int(value2.R)
 		sumG += int(value2.G)
 		sumB += int(value2.B)
-		sumA += int(value2.A)
 
 		dR := calcDeviation(float32(sumR), float32(amount), float32(value1.R), float32(value2.R))
 		dG := calcDeviation(float32(sumG), float32(amount), float32(value1.G), float32(value2.G))
 		dB := calcDeviation(float32(sumB), float32(amount), float32(value1.B), float32(value2.B))
-		dA := calcDeviation(float32(sumA), float32(amount), float32(value1.A), float32(value2.A))
 
-		//		fmt.Println(float32(sumA), float32(amount), float32(value1.A), float32(value2.A))
-
-		if dR+dG+dB+dA > 4*deviation {
-			//			fmt.Println("OK")
+		if dR > deviation ||
+			dG > deviation ||
+			dB > deviation {
 			break
 		}
 
@@ -248,7 +239,6 @@ func findPoints(image *imageRGBA, currentRow int, index *int, deviation float32)
 			R: data.R[currentRow][*index],
 			G: data.G[currentRow][*index],
 			B: data.B[currentRow][*index],
-			A: data.A[currentRow][*index],
 		}
 		amount++
 
@@ -289,10 +279,8 @@ func writeToFile(results []byte, w, h int) {
 	binary.BigEndian.PutUint32(a, uint32(h))
 	f.Write(a)
 
-	//	for i := 0; i < len(results); i++ {
 	f.Write(results)
 	fmt.Println(len(results))
-	//	}
 
 	duration := time.Since(t1)
 	fmt.Printf("DONE (%d ms)\n", int(float32(duration.Nanoseconds())/1000000.0))

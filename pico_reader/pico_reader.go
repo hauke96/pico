@@ -70,7 +70,6 @@ func main() {
 	// CREATE WINDOW
 	// ------------------------------
 	drawable, gc := initWindow()
-	//	drawable.DrawLine(gc, 10, 10, 100, 100)
 	drawImage(decodedData, drawable, gc, WIN_WIDTH, WIN_HEIGHT)
 
 	// ------------------------------
@@ -187,7 +186,8 @@ func decode(rawImageData []byte) image {
 		height: height,
 		R:      make([][]byte, height),
 		G:      make([][]byte, height),
-		B:      make([][]byte, height)}
+		B:      make([][]byte, height),
+	}
 
 	// ------------------------------
 	// GO THROUGHT ALL ROWS
@@ -195,66 +195,80 @@ func decode(rawImageData []byte) image {
 	i := 8 // The current index in the raw array. The 8 is the amount for the size (width+heigth) thats parsed earlier
 	for currentRow := 0; currentRow < height; currentRow++ {
 		image.R[currentRow] = make([]byte, width)
-		currentCol := 0 // The index in the color array
-		decodeRow(rawImageData, &image.R, currentRow, currentCol, width, &i)
-	}
-	for currentRow := 0; currentRow < height; currentRow++ {
 		image.G[currentRow] = make([]byte, width)
-		currentCol := 0 // The index in the color array
-		decodeRow(rawImageData, &image.G, currentRow, currentCol, width, &i)
-	}
-	for currentRow := 0; currentRow < height; currentRow++ {
 		image.B[currentRow] = make([]byte, width)
+
 		currentCol := 0 // The index in the color array
-		decodeRow(rawImageData, &image.B, currentRow, currentCol, width, &i)
+		decodeRow(rawImageData, &image, currentRow, currentCol, width, &i)
 	}
 
 	return image
 }
 
-func decodeRow(rawImageData []byte, array *[][]byte, currentRow, currentCol, width int, ipointer *int) {
+func decodeRow(rawImageData []byte, image *image, currentRow, currentCol, width int, ipointer *int) {
 	i := *ipointer
 	for currentCol < width {
 		// ------------------------------
 		// CALC DATA FOR INTERPOLATION
 		// ------------------------------
-		rawStart := rawImageData[i] // the start value of the interpolation
-		offset := rawImageData[i+1] // the amount of pixel between start and end
-		rawEnd := rawImageData[i+2] // the end value of the interpolation
-		step := 0.0
-		if offset != 0 {
-			step = float64(int(rawEnd)-int(rawStart)) / float64(offset+2) // the difference between two interpolated pixel
-		}
-		i += 3
+		rawStartR := rawImageData[i]   // the start value of the interpolation
+		rawStartG := rawImageData[i+1] // the start value of the interpolation
+		rawStartB := rawImageData[i+2] // the start value of the interpolation
+		offset := rawImageData[i+3]    // the amount of pixel between start and end
+		rawEndR := rawImageData[i+4]   // the end value of the interpolation
+		rawEndG := rawImageData[i+5]   // the end value of the interpolation
+		rawEndB := rawImageData[i+6]   // the end value of the interpolation
+
+		stepR := 0.0
+		stepG := 0.0
+		stepB := 0.0
+		stepR = float64(int(rawEndR)-int(rawStartR)) / (float64(offset) + 2.0) // the difference between two interpolated pixel
+		stepG = float64(int(rawEndG)-int(rawStartG)) / (float64(offset) + 2.0) // the difference between two interpolated pixel
+		stepB = float64(int(rawEndB)-int(rawStartB)) / (float64(offset) + 2.0) // the difference between two interpolated pixel
+		i += 7
 
 		// ------------------------------
 		// SET START VALUE
 		// ------------------------------
-		//			fmt.Println(currentRow, " - ", currentCol, "-", i)
-		(*array)[currentRow][currentCol] = rawStart
+		(*image).R[currentRow][currentCol] = rawStartR
+		(*image).G[currentRow][currentCol] = rawStartG
+		(*image).B[currentRow][currentCol] = rawStartB
 		currentCol++
 
 		// ------------------------------
 		// INTERPOLATE
 		// ------------------------------
 		for k := 0; byte(k) < offset; k++ {
-			value := float64(k) * step
-			if value < 255 {
-				value = -255
-			} else if value > 255 {
-				value = 255
-			}
-			(*array)[currentRow][currentCol+k] = rawStart + byte(value)
+			(*image).R[currentRow][currentCol+k] = getNewValue(k, rawStartR, stepR)
+
+			(*image).G[currentRow][currentCol+k] = getNewValue(k, rawStartG, stepG)
+
+			(*image).B[currentRow][currentCol+k] = getNewValue(k, rawStartB, stepB)
 		}
 		currentCol += int(offset) - 1
 
 		// ------------------------------
 		// SET END VALUE
 		// ------------------------------
-		(*array)[currentRow][currentCol] = rawEnd
+		(*image).R[currentRow][currentCol] = rawEndR
+		(*image).G[currentRow][currentCol] = rawEndG
+		(*image).B[currentRow][currentCol] = rawEndB
 		currentCol++
 	}
 	*ipointer = i
+}
+
+func getNewValue(k int, rawValue byte, step float64) byte {
+	value := float64(rawValue) + float64(k)*step
+	if value < 0 {
+		value = 0
+	} else if value > 255 {
+		value = 255
+	}
+	if int(value) != int(byte(value)) {
+		fmt.Println(value, " - byte(", value, ") = ", byte(value), "\t\t", k, " - ", step)
+	}
+	return byte(value)
 }
 
 // bytesToInt converts the four bytes to an int.
@@ -264,7 +278,7 @@ func bytesToInt(a, b, c, d byte) int {
 }
 
 func drawImage(image image, drawable *gdk.Drawable, gc *gdk.GC, width, height int) {
-	scale := 6.0
+	scale := 1.0
 	for y := 0; y < image.height && y < int(WIN_HEIGHT*scale); y += int(math.Ceil(scale)) {
 		for x := 0; x < image.width && x < int(WIN_WIDTH*scale); x += int(math.Ceil(scale)) {
 			//			gc.SetRgbFgColor(gdk.NewColorRGB(image.R[y][x], 0, 0))
