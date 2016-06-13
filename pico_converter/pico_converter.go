@@ -198,9 +198,9 @@ func interpolateChannel(image imageRGBA, accuracy float32) []byte {
 
 		// FIXME sometimes the sum of all offsets if not width-1. Resolve this hack please!
 		if offsetSum != width-1 {
-			output[len(output)-4] = output[len(output)-4] + byte(width-1-offsetSum)
-			offsetSum += width - 1 - offsetSum
 			//			fmt.Println(offsetSum, ",", byte(width-1-offsetSum), "\n")
+			output[len(output)-4] = output[len(output)-4] + byte(width-1-offsetSum) // len-4 gets the last offset (s.o.)
+			offsetSum += width - 1 - offsetSum
 		}
 	}
 

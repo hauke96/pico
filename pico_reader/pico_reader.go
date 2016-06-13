@@ -128,25 +128,30 @@ func createDrawingArea(window *gtk.Window) (*gdk.Pixmap, *gdk.GC) {
 
 	drawable := gtk.NewDrawingArea().GetWindow().GetDrawable()
 	gc := gdk.NewGC(drawable)
-	pixmap := gdk.NewPixmap(drawable, 1, 1, 24)
+	pixmap := gdk.NewPixmap(drawable, 0, 0, 24)
+
+	alreadyConfigured := false
 
 	drawingarea.Connect("configure-event", func() {
-		fmt.Println("CONFIG...")
-		if pixmap != nil {
-			pixmap.Unref()
+		if !alreadyConfigured {
+			alreadyConfigured = true
+			fmt.Println("CONFIG...")
+			if pixmap != nil {
+				pixmap.Unref()
+			}
+			allocation := drawingarea.GetAllocation()
+
+			newPixmap := gdk.NewPixmap(drawingarea.GetWindow().GetDrawable(), allocation.Width, allocation.Height, 24)
+			*pixmap = *newPixmap
+
+			newGC := gdk.NewGC(pixmap.GetDrawable())
+			*gc = *newGC
+
+			gc.SetRgbFgColor(gdk.NewColor("white"))
+			pixmap.GetDrawable().DrawRectangle(gc, true, 0, 0, -1, -1)
+			gc.SetRgbFgColor(gdk.NewColor("black"))
+			gc.SetRgbBgColor(gdk.NewColor("white"))
 		}
-		allocation := drawingarea.GetAllocation()
-
-		newPixmap := gdk.NewPixmap(drawingarea.GetWindow().GetDrawable(), allocation.Width, allocation.Height, 24)
-		*pixmap = *newPixmap
-
-		newGC := gdk.NewGC(pixmap.GetDrawable())
-		*gc = *newGC
-
-		gc.SetRgbFgColor(gdk.NewColor("white"))
-		pixmap.GetDrawable().DrawRectangle(gc, true, 0, 0, -1, -1)
-		gc.SetRgbFgColor(gdk.NewColor("black"))
-		gc.SetRgbBgColor(gdk.NewColor("white"))
 	})
 
 	drawingarea.Connect("expose-event", func() {
