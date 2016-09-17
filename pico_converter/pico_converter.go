@@ -12,19 +12,6 @@ import (
 	"time"
 )
 
-type imageRGBA struct {
-	R [][]byte
-	G [][]byte
-	B [][]byte
-	A [][]byte
-}
-type RGBAValue struct {
-	R byte
-	G byte
-	B byte
-	A byte
-}
-
 func main() {
 	// ------------------------------
 	// PARSE ARGUMENTS
@@ -50,9 +37,9 @@ func main() {
 	w, h := bounds.Max.X, bounds.Max.Y
 
 	// ------------------------------
-	// GET RGBA IMAGE DATA FROM PNG DATA
+	// ALLOCATE SPACE FOR THE 8-BIT IMAGE DATA
 	// ------------------------------
-	image := decodePNGData(img, w, h)
+	image := allocateImageArrayMemory(img, w, h)
 
 	// ------------------------------
 	// CONVERT EVERYTHING TO byte (8-BIT)
@@ -68,29 +55,6 @@ func main() {
 	// WRITE TO FILE
 	// ------------------------------
 	writeToFile(results, w, h)
-}
-
-func Panic(s string, a ...interface{}) {
-	if !strings.HasSuffix(s, "\n") {
-		s += "\n"
-	}
-	if !strings.HasPrefix(s, "\n") {
-		if !strings.HasPrefix(s, "ERROR: ") {
-			s = "ERROR: " + s
-		}
-		s = "\n" + s
-	} else {
-		if !strings.HasPrefix(s, "\nERROR: ") {
-			s = "\nERROR: " + s
-		}
-	}
-
-	if len(a) == 0 {
-		fmt.Printf(s)
-	} else {
-		fmt.Printf(s, a)
-	}
-	os.Exit(1)
 }
 
 func readPNG() image.Image {
@@ -109,29 +73,6 @@ func readPNG() image.Image {
 	fmt.Println("DONE")
 
 	return img
-}
-
-func decodePNGData(img image.Image, w, h int) imageRGBA {
-	fmt.Print("DECODE PNG DATA...")
-	t1 := time.Now()
-
-	// create data storage for the channels RGBA
-	image2dR := make([][]byte, h)
-	image2dG := make([][]byte, h)
-	image2dB := make([][]byte, h)
-	image2dA := make([][]byte, h)
-
-	// allocate composed 2d array
-	for i := 0; i < h; i++ {
-		image2dR[i] = make([]byte, w)
-		image2dG[i] = make([]byte, w)
-		image2dB[i] = make([]byte, w)
-		image2dA[i] = make([]byte, w)
-	}
-	duration := time.Since(t1)
-	fmt.Printf("DONE (%d ms)\n", int(float32(duration.Nanoseconds())/1000000.0))
-
-	return imageRGBA{R: image2dR, G: image2dG, B: image2dB, A: image2dA}
 }
 
 func convertTo8Bit(img image.Image, w, h int, image *imageRGBA) {
